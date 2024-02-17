@@ -38,16 +38,21 @@ const UserSchema = mongoose.Schema({
   cart: {
     items: [
       {
-        productId: {
+        product: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
+          ref: "Products",
         },
         quantity: {
           type: Number,
           default: 1,
         },
       },
-    ],
+    ], //Items array(objects)
+
+    totalPrice: {
+      type: Number,
+      default: 0,
+    },
   },
   createdAt: {
     type: Date,
