@@ -6,12 +6,14 @@ const cors = require("cors");
 const session = require("express-session");
 const passport = require("passport");
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")("sk_test_51Ol97KSGBJG4p2ppnEqGuemWKtHRSQHLevXdI59ZA65c9oQecheesv1VboiiIEV6lwiIo57M3ZpGz5o6HdjS5rGZ00iwjEj6Ji");
 const { initializePassport } = require("./LocalAuth");
-const { isAuthenticated } = require("./middlewares/isAuthenticated");
 require("./Oauth");
 const { initializeGoogleAuth } = require("./Oauth");
 const bodyParser = require("body-parser");
 const app = express();
+
+const YOUR_DOMAIN = "http://localhost:5173";
 
 app.use(express.json());
 app.use(cors());
@@ -53,6 +55,7 @@ app.post("/login", passport.authenticate("local"), async (req, res) => {
   res.send({ user });
 });
 
+//Product list
 app.get("/HeroProducts", async (req, res) => {
   const HProducts = await HeroProductsModel.find();
   res.json(HProducts);
@@ -69,6 +72,7 @@ app.get("/product/:id", async (req, res) => {
   res.json(Product);
 });
 
+//Cart functionality
 app.post("/add-to-cart", async (req, res) => {
   const { productId, userId } = req.body;
 
@@ -105,12 +109,39 @@ app.post("/add-to-cart", async (req, res) => {
   }
 });
 
-app.get("/cart/:id", async (req, res) => {
-  const id = req.params.id;
-  const User = await UserModel.findById(id);
-  const cartDetails = User.cart;
+//Categorization:
 
-  res.json({ cart: cartDetails });
+app.get("/products/:category", async (req, res) => {
+  const category = req.params.category;
+  const products = await ProductsModel.find({ category: category });
+  res.json(products);
+});
+
+//Stripe Integration:
+
+app.post("/create-checkout-session", async (req, res) => {
+  const { products } = req.body;
+
+  const LineItems = products.map((item) => ({
+    price_data: {
+      currency: "inr",
+      product_data: {
+        name: item.product.name,
+      },
+      unit_amount: item.product.discountPrice * 100,
+    },
+    quantity: item.quantity,
+  }));
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    line_items: LineItems,
+    mode: "payment",
+    success_url: `${YOUR_DOMAIN}/Success`,
+    cancel_url: `${YOUR_DOMAIN}/Failed`,
+  });
+
+  res.json({ id: session.id } );
 });
 
 //Google Auth
@@ -132,5 +163,4 @@ app.get(
 
 app.listen(5000, () => {
   console.log("Server listening on http://localhost:5000");
-  console.log("SignIn with Google on http://localhost:5000/auth/google");
 });
